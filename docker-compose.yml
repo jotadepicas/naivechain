@@ -1,23 +1,31 @@
 ---
 version: '3'
 services:
+
   node1:
     build:
       context: .
     ports:
     - "3001:3001"
+    volumes:
+      - ./main.js:/naivechain/main.js
+
   node2:
     build:
-      context: ./
-      dockerfile: Dockerfile
+      context: .
     ports:
     - "3002:3001"
     environment:
       - PEERS=ws://node1:6001
+    volumes:
+      - ./main.js:/naivechain/main.js
+
   node3:
-    environment:
-      - PEERS=ws://node2:6001
     build:
-      context: ./
+      context: .
     ports:
     - "3003:3001"
+    environment:
+      - PEERS=ws://node2:6001
+    volumes:
+      - ./main.js:/naivechain/main.js

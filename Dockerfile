@@ -1,12 +1,13 @@
-FROM node:4.6
+FROM node
 
-RUN mkdir /naivechain
+WORKDIR /naivechain
 ADD package.json /naivechain/
-ADD main.js /naivechain/
 
-RUN cd /naivechain && npm install
+RUN npm i
+
+ADD main.js /naivechain/
 
 EXPOSE 3001
 EXPOSE 6001
 
-ENTRYPOINT cd /naivechain && npm install && PEERS=$PEERS npm start
+ENTRYPOINT PEERS=$PEERS npm run dev
