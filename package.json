@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "A blockchain implementation in 200 lines of code.",
   "scripts": {
-    "start": "node main.js",
-    "dev": "nodemon"
+    "start": "NODE_PATH=. node main.js",
+    "dev": "NODE_PATH=. nodemon"
   },
   "dependencies": {
     "body-parser": "^1.18.3",

@@ -6,6 +6,7 @@ ADD package.json /naivechain/
 RUN npm i
 
 ADD main.js /naivechain/
+ADD src /naivechain/src/
 
 EXPOSE 3001
 EXPOSE 6001

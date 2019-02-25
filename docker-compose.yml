@@ -9,6 +9,7 @@ services:
     - "3001:3001"
     volumes:
       - ./main.js:/naivechain/main.js
+      - ./src/:/naivechain/src/
 
   node2:
     build:
@@ -19,6 +20,7 @@ services:
       - PEERS=ws://node1:6001
     volumes:
       - ./main.js:/naivechain/main.js
+      - ./src/:/naivechain/src/
 
   node3:
     build:
@@ -29,3 +31,4 @@ services:
       - PEERS=ws://node2:6001
     volumes:
       - ./main.js:/naivechain/main.js
+      - ./src/:/naivechain/src/
