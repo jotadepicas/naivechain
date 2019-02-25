@@ -1,10 +1,18 @@
 const Block = require('./block.js')
 const CryptoJS = require('crypto-js')
 
-var blockchain = [
-  new Block(0, '0', 1465154705, 'my genesis block!!',
-    '816534932c2b7154836da6afc367695e6337db8a921823784c14378abed4f7d7')
-]
+var blockchain = [createGenesisBlock()]
+
+function createGenesisBlock () {
+  var index = 0
+  var previousHash = '0'
+  var timestamp = 1465154705
+  var data = 'my genesis block!!'
+
+  var hash = calculateHash(index, previousHash, timestamp, data)
+
+  return new Block(index, previousHash, timestamp, data, hash)
+}
 
 module.exports.blockchain = blockchain
 
@@ -48,17 +56,40 @@ function isValidNewBlock (newBlock, previousBlock) {
   if (previousBlock.index + 1 !== newBlock.index) {
     console.log('invalid index')
     return false
-  } else if (previousBlock.hash !== newBlock.previousHash) {
+  }
+
+  if (previousBlock.hash !== newBlock.previousHash) {
     console.log('invalid previoushash')
     return false
-  } else if (calculateHashForBlock(newBlock) !== newBlock.hash) {
-    console.log(typeof (newBlock.hash) + ' ' + typeof calculateHashForBlock(newBlock))
-    console.log('invalid hash: ' + calculateHashForBlock(newBlock) + ' ' + newBlock.hash)
+  }
+
+  var newHash = calculateHashForBlock(newBlock)
+  if (newHash !== newBlock.hash) {
+    console.log(`invalid hash: ${newHash} (${typeof newHash}) !== ${newBlock.hash} (${typeof newBlock.hash})`)
     return false
   }
+
   return true
 }
 
 module.exports.isValidNewBlock = isValidNewBlock
+
+module.exports.isValidChain = (blockchainToValidate) => {
+  if (calculateHashForBlock(blockchainToValidate[0]) !== blockchain[0].hash) {
+    return false
+  }
+
+  var tempBlocks = [blockchainToValidate[0]]
+
+  for (var i = 1; i < blockchainToValidate.length; i++) {
+    if (isValidNewBlock(blockchainToValidate[i], tempBlocks[i - 1])) {
+      tempBlocks.push(blockchainToValidate[i])
+    } else {
+      return false
+    }
+  }
+
+  return true
+}
 
 module.exports.Block = Block

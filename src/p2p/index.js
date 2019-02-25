@@ -8,14 +8,22 @@ var MessageType = {
   RESPONSE_BLOCKCHAIN: 2
 }
 
-var write = (ws, message) => ws.send(JSON.stringify(message))
-var broadcast = (message) => sockets.forEach(socket => write(socket, message))
+var write = (ws, message) => {
+  var msg = JSON.stringify(message)
+  console.log(`Sending message: ${msg} to ${ws._socket.remoteAddress}:${ws._socket.remotePort}`)
+  ws.send(msg)
+}
+
+var broadcast = (message) => {
+  sockets.forEach(socket => write(socket, message))
+}
 
 var initP2PServer = (p2pPort, initialPeers) => {
-  connectToPeers(initialPeers)
   var server = new WebSocket.Server({ port: p2pPort })
   server.on('connection', ws => initConnection(ws))
   console.log('listening websocket p2p port on: ' + p2pPort)
+
+  connectToPeers(initialPeers)
 }
 
 module.exports.initP2PServer = initP2PServer
@@ -45,15 +53,23 @@ var responseLatestMsg = () => ({
 })
 
 var handleBlockchainResponse = (message) => {
+  console.log(`Handling blockchain message type ${message.type}`)
+
   var receivedBlocks = JSON.parse(message.data).sort((b1, b2) => (b1.index - b2.index))
   var latestBlockReceived = receivedBlocks[receivedBlocks.length - 1]
   var latestBlockHeld = blockchainModule.getLatestBlock()
   if (latestBlockReceived.index > latestBlockHeld.index) {
     console.log('blockchain possibly behind. We got: ' + latestBlockHeld.index + ' Peer got: ' + latestBlockReceived.index)
+
+    console.log(`Latest hash held: ${latestBlockHeld.hash}. Latest block received previous hash: ${latestBlockReceived.previousHash}`)
+
     if (latestBlockHeld.hash === latestBlockReceived.previousHash) {
       console.log('We can append the received block to our chain')
-      blockchainModule.blockchain.push(latestBlockReceived)
-      broadcast(responseLatestMsg())
+
+      blockchainModule.addBlock({ nextBlock: latestBlockReceived }, null, err => {
+        if (err) { return console.log(`error adding block: ${err}`) }
+        broadcast(responseLatestMsg())
+      })
     } else if (receivedBlocks.length === 1) {
       console.log('We have to query the chain from our peer')
       broadcast(queryAllMsg())
@@ -67,7 +83,7 @@ var handleBlockchainResponse = (message) => {
 }
 
 var replaceChain = (newBlocks) => {
-  if (isValidChain(newBlocks) && newBlocks.length > blockchainModule.blockchain.length) {
+  if (blockchainModule.isValidChain(newBlocks) && newBlocks.length > blockchainModule.blockchain.length) {
     console.log('Received blockchain is valid. Replacing current blockchain with received blockchain')
     blockchainModule.blockchain = newBlocks
     broadcast(responseLatestMsg())
@@ -76,25 +92,8 @@ var replaceChain = (newBlocks) => {
   }
 }
 
-var isValidChain = (blockchainToValidate) => {
-  if (JSON.stringify(blockchainToValidate[0]) !== JSON.stringify(blockchainModule.blockchain[0])) {
-    return false
-  }
-  var tempBlocks = [blockchainToValidate[0]]
-  for (var i = 1; i < blockchainToValidate.length; i++) {
-    if (blockchainModule.isValidNewBlock(blockchainToValidate[i], tempBlocks[i - 1])) {
-      tempBlocks.push(blockchainToValidate[i])
-    } else {
-      return false
-    }
-  }
-  return true
-}
-
 var initConnection = (ws) => {
   sockets.push(ws)
-  initMessageHandler(ws)
-  initErrorHandler(ws)
   write(ws, queryChainLengthMsg())
 }
 
@@ -116,21 +115,42 @@ var initMessageHandler = (ws) => {
   })
 }
 
-var initErrorHandler = (ws) => {
-  var closeConnection = (ws) => {
-    console.log('connection failed to peer: ' + ws.url)
-    sockets.splice(sockets.indexOf(ws), 1)
-  }
-  ws.on('close', () => closeConnection(ws))
-  ws.on('error', () => closeConnection(ws))
+const MAX_RETRIES = 10
+var currentRetries = 0
+
+function handleSocketClosed (ws) {
+  sockets.splice(sockets.indexOf(ws), 1)
 }
 
 var connectToPeers = (newPeers) => {
   newPeers.forEach((peer) => {
-    var ws = new WebSocket(peer)
-    ws.on('open', () => initConnection(ws))
-    ws.on('error', () => {
-      console.log('connection failed')
-    })
+    function connectToPeer () {
+      console.log(`Connecting to peer ${peer}...`)
+
+      var ws = new WebSocket(peer)
+
+      ws.on('open', () => {
+        initMessageHandler(ws)
+        console.log(`Connected to peer ${peer}.`)
+      })
+
+      ws.on('close', () => {
+        handleSocketClosed(ws)
+      })
+
+      ws.on('error', (err) => {
+        console.log(`Connection error ${err}.`)
+        if (currentRetries < MAX_RETRIES) {
+          currentRetries++
+          console.log(`Connection retry #${currentRetries}...`)
+          setTimeout(connectToPeer, 1000)
+        } else {
+          console.log(`Max number of connection retries reached. Aborting connection.`)
+          handleSocketClosed(ws)
+        }
+      })
+    }
+
+    connectToPeer()
   })
 }

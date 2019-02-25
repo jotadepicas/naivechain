@@ -7,6 +7,8 @@ services:
       context: .
     ports:
     - "3001:3001"
+    environment:
+      - PEERS=ws://node2:6001,ws://node3:6001
     volumes:
       - ./main.js:/naivechain/main.js
       - ./src/:/naivechain/src/
@@ -17,7 +19,7 @@ services:
     ports:
     - "3002:3001"
     environment:
-      - PEERS=ws://node1:6001
+      - PEERS=ws://node1:6001,ws://node3:6001
     volumes:
       - ./main.js:/naivechain/main.js
       - ./src/:/naivechain/src/
@@ -28,7 +30,7 @@ services:
     ports:
     - "3003:3001"
     environment:
-      - PEERS=ws://node2:6001
+      - PEERS=ws://node1:6001,ws://node2:6001
     volumes:
       - ./main.js:/naivechain/main.js
       - ./src/:/naivechain/src/
